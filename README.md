@@ -71,9 +71,8 @@
 - SMOTE pour générer des exemples synthétiques.
 
 ### Critères d’évaluation
-**Pourquoi choisir l'AUC ?**
-- Mesure la capacité à distinguer entre les classes, indépendamment d'un seuil.
-
+**Pourquoi choisir le score metier ?**
+-  il permet de traduire les prédictions techniques en décisions alignées sur les objectifs stratégiques et opérationnels du métier.
 **Autres indicateurs :**
 - Matrice de confusion pour analyser les erreurs critiques (FN/FP).
 - Temps d'entraînement pour évaluer la faisabilité industrielle.
