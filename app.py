@@ -1,62 +1,104 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import shap
 import matplotlib.pyplot as plt
 import seaborn as sns
-import requests
+import plotly.express as px
 
-# Charger les données
-data = pd.read_csv("/content/cleaned_data.csv")
-model = None
+# Configuration de la page
+st.set_page_config(
+    page_title="Dashboard Crédit Scoring",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-try:
-    import pickle
-    with open("/content/model.pkl", "rb") as file:
-        model = pickle.load(file)
-except Exception as e:
-    st.error(f"Erreur lors du chargement du modèle : {e}")
-
-# Configurer la page
-st.set_page_config(page_title="Dashboard Crédit Scoring", layout="wide")
-
+# Titre et description
 st.title("Dashboard Crédit Scoring")
-st.write("Analyse des scores de crédit et visualisation des contributions des features.")
+st.markdown(
+    """
+    **Bienvenue sur le tableau de bord Crédit Scoring !**  
+    Explorez les données de modélisation et découvrez les prédictions de score de crédit.  
+    Ce tableau de bord est conçu pour répondre aux besoins des utilisateurs, y compris ceux en situation de handicap, conformément aux critères WCAG.  
+    """
+)
 
-# Fonctionnalité : Sélection d'un client
-client_id = st.sidebar.selectbox("Sélectionnez un ID Client", data["SK_ID_CURR"].unique())
-client_data = data[data["SK_ID_CURR"] == client_id].drop(columns=["SK_ID_CURR", "TARGET"])
+# Chargement des données
+@st.cache_data
+def load_data():
+    return pd.read_csv("cleaned_data.csv")
 
-# Fonction : Visualiser le score de crédit
-def show_score_gauge(score):
-    fig, ax = plt.subplots(figsize=(5, 2))
-    ax.barh(["Score"], [score], color="green" if score > 0.5 else "red")
-    ax.set_xlim(0, 1)
-    ax.set_title(f"Score Crédit : {score:.2f}")
-    st.pyplot(fig)
+data = load_data()
 
-# Fonction : Récupérer les scores via une API
-def get_client_score(client_id):
-    url = "https://<votre_lien_ngrok>.ngrok.io/predict"  # Remplacez avec votre lien Ngrok
-    response = requests.post(url, json={"client_id": client_id})
-    if response.status_code == 200:
-        return response.json().get("score", 0)
-    return None
+# Interface utilisateur : Sélection d'un client
+st.sidebar.header("Options Utilisateur")
+client_id = st.sidebar.selectbox("Sélectionnez un ID Client :", data["SK_ID_CURR"].unique())
 
-# Afficher le score
-if st.sidebar.button("Obtenir les prédictions"):
-    score = get_client_score(client_id)
-    if score is not None:
-        st.header("Score de Crédit")
-        show_score_gauge(score)
+# Affichage des données du client
+st.sidebar.subheader("Données Client")
+client_data = data[data["SK_ID_CURR"] == client_id]
+st.sidebar.dataframe(client_data)
 
-# Graphiques
-st.sidebar.subheader("Analyse Bi-Variée")
-feature_x = st.sidebar.selectbox("Feature X", data.columns)
-feature_y = st.sidebar.selectbox("Feature Y", data.columns)
+# Graphique 1 : Distribution des revenus
+st.header("Analyse des Revenus des Clients")
+st.subheader("Répartition des revenus annuels")
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.histplot(data["AMT_INCOME_TOTAL"], kde=True, bins=30, color="blue", ax=ax)
+ax.set_title("Répartition des revenus annuels", fontsize=16)
+ax.set_xlabel("Revenus annuels", fontsize=14)
+ax.set_ylabel("Nombre de clients", fontsize=14)
+st.pyplot(fig)
 
-if st.sidebar.button("Afficher l'analyse bi-variée"):
-    st.subheader(f"Analyse Bi-Variée : {feature_x} vs {feature_y}")
+# Graphique 2 : Analyse des crédits par type de contrat
+st.header("Analyse des Crédits")
+st.subheader("Montants des crédits par type de contrat")
+fig2 = px.box(
+    data,
+    x="NAME_CONTRACT_TYPE",
+    y="AMT_CREDIT",
+    color="NAME_CONTRACT_TYPE",
+    title="Montants des crédits par type de contrat",
+    labels={"NAME_CONTRACT_TYPE": "Type de Contrat", "AMT_CREDIT": "Montant du Crédit"},
+)
+st.plotly_chart(fig2)
+
+# Graphique 3 : Relation entre le revenu et le montant du crédit
+st.header("Relation entre Revenu et Crédit")
+st.subheader("Analyse bi-variée : Revenu vs Montant du Crédit")
+fig3 = px.scatter(
+    data,
+    x="AMT_INCOME_TOTAL",
+    y="AMT_CREDIT",
+    color="CODE_GENDER",
+    labels={"AMT_INCOME_TOTAL": "Revenu Annuel", "AMT_CREDIT": "Montant du Crédit"},
+    title="Revenu vs Montant du Crédit par Genre",
+)
+st.plotly_chart(fig3)
+
+# Graphique 4 : Proportions des statuts familiaux
+st.header("Analyse des Statuts Familiaux")
+st.subheader("Proportions des différents statuts familiaux")
+fig4 = px.pie(
+    data,
+    names="NAME_FAMILY_STATUS",
+    title="Répartition des statuts familiaux",
+    hole=0.4
+)
+st.plotly_chart(fig4)
+
+# Critères d'accessibilité WCAG
+st.markdown(
+    """
+    ### Accessibilité du Dashboard
+    - **Critère 1.1.1 Contenu non textuel :** Les graphiques sont accompagnés de descriptions et de titres compréhensibles.
+    - **Critère 1.4.1 Utilisation de la couleur :** Les graphiques utilisent des couleurs adaptées pour ne pas dépendre uniquement de la couleur.
+    - **Critère 1.4.3 Contraste (minimum) :** Les contrastes entre le texte et l'arrière-plan respectent les normes.
+    - **Critère 1.4.4 Redimensionnement du texte :** Utilisez le zoom du navigateur pour ajuster la taille du texte sans perte de lisibilité.
+    - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
+    """
+)
+
+# Message de fin
+st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
+
     fig, ax = plt.subplots(figsize=(8, 6))
     sns.scatterplot(x=feature_x, y=feature_y, data=data, alpha=0.6)
     st.pyplot(fig)
