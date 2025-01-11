@@ -99,6 +99,6 @@ st.markdown(
 # Message de fin
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
 
-    fig, ax = plt.subplots(figsize=(8, 6))
-    sns.scatterplot(x=feature_x, y=feature_y, data=data, alpha=0.6)
-    st.pyplot(fig)
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.scatterplot(x=feature_x, y=feature_y, data=data, alpha=0.6)
+st.pyplot(fig)
