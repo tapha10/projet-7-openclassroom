@@ -3,9 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
-import zipfile
 import pickle
-import lightgbm
+import zipfile
 
 # Configuration de la page
 st.set_page_config(
@@ -32,23 +31,39 @@ def load_data():
             return pd.read_csv(f)
 
 @st.cache
-def load_model():
-    with open("trained_model.pkl", "rb") as model_file:
-        return pickle.load(model_file)
-
-@st.cache
 def load_model_columns():
     with open("model_columns.pkl", "rb") as columns_file:
         return pickle.load(columns_file)
 
-# Charger les données, le modèle et les colonnes
+# Charger les données et les colonnes
 try:
     data = load_data()
-    model = load_model()
     model_columns = load_model_columns()
-    st.sidebar.success("Données et modèle chargés avec succès !")
+    st.sidebar.success("Données et colonnes chargées avec succès !")
 except Exception as e:
     st.sidebar.error(f"Erreur lors du chargement des ressources : {e}")
+
+# Définir les règles pour accorder ou refuser un crédit
+RULES = {
+    "ACCORD": [
+        {"feature": "AMT_INCOME_TOTAL", "operator": ">=", "value": 50000},
+        {"feature": "AMT_CREDIT", "operator": "<=", "value": 500000},
+    ],
+    "REFUS": [
+        {"feature": "AMT_INCOME_TOTAL", "operator": "<", "value": 20000},
+        {"feature": "AMT_CREDIT", "operator": ">", "value": 1000000},
+    ]
+}
+
+# Vérifier si un client satisfait les règles
+def check_decision(client_row):
+    for rule in RULES["ACCORD"]:
+        if not eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
+            return "Refusé"
+    for rule in RULES["REFUS"]:
+        if eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
+            return "Refusé"
+    return "Accordé"
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
@@ -59,22 +74,18 @@ st.sidebar.subheader("Données Client")
 client_data = data[data["SK_ID_CURR"] == client_id]
 st.sidebar.dataframe(client_data)
 
-# Vérifier que les colonnes du modèle existent dans les données
+# Vérifier les colonnes manquantes
 missing_columns = [col for col in model_columns if col not in client_data.columns]
 if missing_columns:
     st.sidebar.error(f"Colonnes manquantes : {missing_columns}")
 else:
-    # Préparation des données pour le modèle
-    client_features = client_data[model_columns]
-
-    # Prédiction pour le client
-    st.sidebar.subheader("Prédiction du Crédit")
+    # Décision basée sur les règles
+    st.sidebar.subheader("Décision du Crédit")
     try:
-        prediction = model.predict(client_features)[0]
-        result = "Accordé" if prediction == 1 else "Refusé"
-        st.sidebar.write(f"**Résultat : {result}**")
+        decision = check_decision(client_data.iloc[0])
+        st.sidebar.write(f"**Résultat : {decision}**")
     except Exception as e:
-        st.sidebar.error(f"Erreur lors de la prédiction : {e}")
+        st.sidebar.error(f"Erreur lors de l'évaluation des règles : {e}")
 
 # Graphique 1 : Distribution des revenus
 st.header("Analyse des Revenus des Clients")
@@ -134,6 +145,10 @@ st.markdown(
     - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
     """
 )
+
+# Message de fin
+st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
+
 
 # Message de fin
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
