@@ -5,6 +5,7 @@ import seaborn as sns
 import plotly.express as px
 import zipfile
 import pickle
+import lightgbm
 
 # Configuration de la page
 st.set_page_config(
@@ -26,24 +27,19 @@ st.markdown(
 # Chargement des données
 @st.cache
 def load_data():
-    # Ouvrir le fichier ZIP
     with zipfile.ZipFile("cleaned_data.zip", "r") as z:
-        # Extraire le fichier CSV
         with z.open("cleaned_data.csv") as f:
-            # Lire le fichier CSV
             return pd.read_csv(f)
 
 @st.cache
 def load_model():
     with open("trained_model.pkl", "rb") as model_file:
-        model = pickle.load(model_file)
-    return model
+        return pickle.load(model_file)
 
 @st.cache
 def load_model_columns():
     with open("model_columns.pkl", "rb") as columns_file:
-        model_columns = pickle.load(columns_file)
-    return model_columns
+        return pickle.load(columns_file)
 
 # Charger les données, le modèle et les colonnes
 try:
@@ -63,17 +59,22 @@ st.sidebar.subheader("Données Client")
 client_data = data[data["SK_ID_CURR"] == client_id]
 st.sidebar.dataframe(client_data)
 
-# Préparation des données pour le modèle
-client_features = client_data[model_columns]
+# Vérifier que les colonnes du modèle existent dans les données
+missing_columns = [col for col in model_columns if col not in client_data.columns]
+if missing_columns:
+    st.sidebar.error(f"Colonnes manquantes : {missing_columns}")
+else:
+    # Préparation des données pour le modèle
+    client_features = client_data[model_columns]
 
-# Prédiction pour le client
-st.sidebar.subheader("Prédiction du Crédit")
-try:
-    prediction = model.predict(client_features)[0]
-    result = "Accordé" if prediction == 1 else "Refusé"
-    st.sidebar.write(f"**Résultat : {result}**")
-except Exception as e:
-    st.sidebar.error(f"Erreur lors de la prédiction : {e}")
+    # Prédiction pour le client
+    st.sidebar.subheader("Prédiction du Crédit")
+    try:
+        prediction = model.predict(client_features)[0]
+        result = "Accordé" if prediction == 1 else "Refusé"
+        st.sidebar.write(f"**Résultat : {result}**")
+    except Exception as e:
+        st.sidebar.error(f"Erreur lors de la prédiction : {e}")
 
 # Graphique 1 : Distribution des revenus
 st.header("Analyse des Revenus des Clients")
@@ -136,8 +137,3 @@ st.markdown(
 
 # Message de fin
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
-
-
-fig, ax = plt.subplots(figsize=(8, 6))
-sns.scatterplot(x=feature_x, y=feature_y, data=data, alpha=0.6)
-st.pyplot(fig)
