@@ -24,7 +24,12 @@ st.markdown(
 # Chargement des données
 @st.cache
 def load_data():
-    return pd.read_csv("cleaned_data.csv")
+    # Ouvrir le fichier ZIP
+    with zipfile.ZipFile("cleaned_data.zip", "r") as z:
+        # Extraire le fichier CSV
+        with z.open("cleaned_data.csv") as f:
+            # Lire le fichier CSV
+            return pd.read_csv(f)
 
 data = load_data()
 
