@@ -24,18 +24,18 @@ st.markdown(
 )
 
 # Chargement des données
-@st.cache_data
+@st.cache
 def load_data():
     with zipfile.ZipFile("cleaned_data.zip", "r") as z:
         with z.open("cleaned_data.csv") as f:
             return pd.read_csv(f)
 
-@st.cache_data
+@st.cache
 def load_model():
     with open("model.pkl", "rb") as model_file:
         return pickle.load(model_file)
 
-@st.cache_data
+@st.cache
 def load_model_columns():
     with open("model_columns.pkl", "rb") as columns_file:
         return pickle.load(columns_file)
