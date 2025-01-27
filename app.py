@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
-import pickle
 import zipfile
 
 # Configuration de la page
@@ -18,8 +16,7 @@ st.title("Dashboard Crédit Scoring")
 st.markdown(
     """
     **Bienvenue sur le tableau de bord Crédit Scoring !**  
-    Explorez les données de modélisation et découvrez les décisions d'accord ou de refus de crédit.  
-    Ce tableau de bord est conçu pour répondre aux besoins des utilisateurs, y compris ceux en situation de handicap, conformément aux critères WCAG.  
+    Explorez les scores de crédit des clients et découvrez leur décision d'accord ou de refus.  
     """
 )
 
@@ -53,85 +50,79 @@ RULES = {
 def check_decision(client_row):
     for rule in RULES["ACCORD"]:
         if not eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
-            return "Refusé"
+            return "Refusé", 0.0  # Score minimal pour refusé
     for rule in RULES["REFUS"]:
         if eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
-            return "Refusé"
-    return "Accordé"
+            return "Refusé", 0.0
+    return "Accordé", 0.75  # Score arbitraire pour accordé
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
 client_id = st.sidebar.selectbox("Sélectionnez un ID Client :", data["SK_ID_CURR"].unique())
 
-# **1. Visualiser le score et l’interprétation**
-st.header("Visualisation du Score et de l'Interprétation")
-st.sidebar.subheader("Données Client")
+# **1. Visualiser le score et la probabilité**
+st.header("Visualisation du Score et de la Proximité avec le Seuil")
 client_data = data[data["SK_ID_CURR"] == client_id]
-st.sidebar.dataframe(client_data)
 
-# Décision basée sur les règles
-st.sidebar.subheader("Décision du Crédit")
 try:
-    decision = check_decision(client_data.iloc[0])
-    st.sidebar.write(f"**Résultat : {decision}**")
+    decision, score = check_decision(client_data.iloc[0])
+    seuil = 0.5  # Seuil fixe pour décider
     st.write(f"### Résultat pour le client sélectionné : {decision}")
+
+    # Visualisation du score et de sa proximité avec le seuil
+    fig, ax = plt.subplots(figsize=(8, 2))
+    ax.barh(["Score"], [score], color="green" if score >= seuil else "red", label="Score actuel")
+    ax.axvline(seuil, color="blue", linestyle="--", label="Seuil")
+    ax.set_xlim(0, 1)
+    ax.set_title("Score et Proximité du Seuil")
+    ax.legend()
+
+    # Annotation du score
+    ax.text(score, 0, f"{score:.2f}", va="center", ha="center", color="white", fontsize=12)
+
+    st.pyplot(fig)
+
 except Exception as e:
-    st.sidebar.error(f"Erreur lors de l'évaluation des règles : {e}")
+    st.error(f"Erreur lors de l'évaluation des règles : {e}")
 
 # **2. Visualiser les principales informations descriptives du client**
 st.header("Informations Clés du Client")
-metrics = {
-    "Revenu Annuel": client_data["AMT_INCOME_TOTAL"].values[0],
-    "Montant Crédit": client_data["AMT_CREDIT"].values[0],
-    "Type Contrat": client_data["NAME_CONTRACT_TYPE"].values[0]
-}
-for key, value in metrics.items():
-    st.metric(key, value)
+try:
+    metrics = {
+        "Revenu Annuel": client_data["AMT_INCOME_TOTAL"].values[0],
+        "Montant Crédit": client_data["AMT_CREDIT"].values[0],
+        "Type Contrat": client_data["NAME_CONTRACT_TYPE"].values[0]
+    }
+    for key, value in metrics.items():
+        st.metric(key, value)
+except Exception as e:
+    st.error(f"Erreur lors de l'affichage des informations descriptives : {e}")
 
 # **3. Comparaison avec un groupe similaire**
 st.header("Comparaison avec un Groupe")
 st.subheader("Comparer avec des clients similaires")
-genre = st.selectbox("Genre :", data["CODE_GENDER"].unique())
-contrat = st.selectbox("Type de Contrat :", data["NAME_CONTRACT_TYPE"].unique())
-filtered_data = data[(data["CODE_GENDER"] == genre) & (data["NAME_CONTRACT_TYPE"] == contrat)]
+try:
+    genre = st.selectbox("Genre :", data["CODE_GENDER"].unique())
+    contrat = st.selectbox("Type de Contrat :", data["NAME_CONTRACT_TYPE"].unique())
+    filtered_data = data[(data["CODE_GENDER"] == genre) & (data["NAME_CONTRACT_TYPE"] == contrat)]
 
-st.subheader("Visualisation des Revenus et Crédits")
-fig, ax = plt.subplots(figsize=(10, 6))
-sns.scatterplot(
-    x="AMT_INCOME_TOTAL", y="AMT_CREDIT", data=filtered_data, label="Groupe", ax=ax, color="blue", alpha=0.6
-)
-ax.scatter(
-    client_data["AMT_INCOME_TOTAL"], client_data["AMT_CREDIT"],
-    color="red", label="Client Sélectionné", s=100
-)
-ax.set_title("Revenu vs Montant du Crédit")
-ax.set_xlabel("Revenu Annuel")
-ax.set_ylabel("Montant du Crédit")
-ax.legend()
-st.pyplot(fig)
+    st.subheader("Visualisation des Revenus et Crédits")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.scatterplot(
+        x="AMT_INCOME_TOTAL", y="AMT_CREDIT", data=filtered_data, label="Groupe", ax=ax, color="blue", alpha=0.6
+    )
+    ax.scatter(
+        client_data["AMT_INCOME_TOTAL"], client_data["AMT_CREDIT"],
+        color="red", label="Client Sélectionné", s=100
+    )
+    ax.set_title("Revenu vs Montant du Crédit")
+    ax.set_xlabel("Revenu Annuel")
+    ax.set_ylabel("Montant du Crédit")
+    ax.legend()
+    st.pyplot(fig)
 
-# Graphique 4 : Proportions des statuts familiaux
-st.header("Analyse des Statuts Familiaux")
-st.subheader("Proportions des différents statuts familiaux")
-fig4 = px.pie(
-    data,
-    names="NAME_FAMILY_STATUS",
-    title="Répartition des statuts familiaux",
-    hole=0.4
-)
-st.plotly_chart(fig4)
-
-# Critères d'accessibilité WCAG
-st.markdown(
-    """
-    ### Accessibilité du Dashboard
-    - **Critère 1.1.1 Contenu non textuel :** Les graphiques sont accompagnés de descriptions et de titres compréhensibles.
-    - **Critère 1.4.1 Utilisation de la couleur :** Les graphiques utilisent des couleurs adaptées pour ne pas dépendre uniquement de la couleur.
-    - **Critère 1.4.3 Contraste (minimum) :** Les contrastes entre le texte et l'arrière-plan respectent les normes.
-    - **Critère 1.4.4 Redimensionnement du texte :** Utilisez le zoom du navigateur pour ajuster la taille du texte sans perte de lisibilité.
-    - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
-    """
-)
+except Exception as e:
+    st.error(f"Erreur lors de la comparaison avec le groupe : {e}")
 
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
 
