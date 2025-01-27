@@ -46,15 +46,28 @@ RULES = {
     ]
 }
 
-# Vérifier si un client satisfait les règles
-def check_decision(client_row):
-    for rule in RULES["ACCORD"]:
-        if not eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
-            return "Refusé", 0.0  # Score minimal pour refusé
-    for rule in RULES["REFUS"]:
-        if eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
-            return "Refusé", 0.0
-    return "Accordé", 0.75  # Score arbitraire pour accordé
+# Vérifier si un client satisfait les règles et calculer le seuil
+def check_decision_and_calculate_threshold(client_row):
+    income = client_row["AMT_INCOME_TOTAL"]
+    credit = client_row["AMT_CREDIT"]
+
+    # Déterminer la proximité au seuil pour chaque règle
+    accord_distance = [
+        max(0, (rule["value"] - income) if rule["operator"] == ">=" else (credit - rule["value"]))
+        for rule in RULES["ACCORD"]
+    ]
+    refus_distance = [
+        max(0, (rule["value"] - income) if rule["operator"] == "<" else (credit - rule["value"]))
+        for rule in RULES["REFUS"]
+    ]
+
+    # Décision et score basé sur les distances aux règles
+    if all(d == 0 for d in accord_distance):
+        return "Accordé", 0.8  # Score élevé pour un accord
+    elif any(d > 0 for d in refus_distance):
+        return "Refusé", 0.2  # Score bas pour un refus
+    else:
+        return "Refusé", 0.5  # Cas limite au seuil
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
@@ -65,7 +78,7 @@ st.header("Visualisation du Score et de la Proximité avec le Seuil")
 client_data = data[data["SK_ID_CURR"] == client_id]
 
 try:
-    decision, score = check_decision(client_data.iloc[0])
+    decision, score = check_decision_and_calculate_threshold(client_data.iloc[0])
     seuil = 0.5  # Seuil fixe pour décider
     st.write(f"### Résultat pour le client sélectionné : {decision}")
 
