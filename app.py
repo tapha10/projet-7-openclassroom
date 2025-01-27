@@ -5,7 +5,6 @@ import seaborn as sns
 import plotly.express as px
 import pickle
 import zipfile
-import shap
 
 # Configuration de la page
 st.set_page_config(
@@ -20,56 +19,35 @@ st.markdown(
     """
     **Bienvenue sur le tableau de bord Crédit Scoring !**  
     Explorez les données de modélisation et découvrez les prédictions de score de crédit.  
-    Ce tableau de bord est conçu pour répondre aux besoins des utilisateurs, y compris ceux en situation de handicap, conformément aux critères WCAG.  
+    Ce tableau de bord est conçu pour être accessible et intelligible pour tous les utilisateurs.
     """
 )
 
 # Chargement des données
-@st.cache
+@st.cache_data
 def load_data():
     with zipfile.ZipFile("cleaned_data.zip", "r") as z:
         with z.open("cleaned_data.csv") as f:
             return pd.read_csv(f)
 
-@st.cache
+@st.cache_data
 def load_model():
     with open("model.pkl", "rb") as model_file:
         return pickle.load(model_file)
 
-@st.cache
+@st.cache_data
 def load_model_columns():
     with open("model_columns.pkl", "rb") as columns_file:
         return pickle.load(columns_file)
 
-# Charger les données et les colonnes
+# Charger les ressources
 try:
     data = load_data()
     model = load_model()
     model_columns = load_model_columns()
-    st.sidebar.success("Données, modèle et colonnes chargés avec succès !")
+    st.sidebar.success("Ressources chargées avec succès !")
 except Exception as e:
     st.sidebar.error(f"Erreur lors du chargement des ressources : {e}")
-
-# Définir les règles pour accorder ou refuser un crédit
-RULES = {
-    "ACCORD": [
-        {"feature": "AMT_INCOME_TOTAL", "operator": ">=", "value": 50000},
-        {"feature": "AMT_CREDIT", "operator": "<=", "value": 500000},
-    ],
-    "REFUS": [
-        {"feature": "AMT_INCOME_TOTAL", "operator": "<", "value": 20000},
-        {"feature": "AMT_CREDIT", "operator": ">", "value": 1000000},
-    ]
-}
-
-def check_decision(client_row):
-    for rule in RULES["ACCORD"]:
-        if not eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
-            return "Refusé"
-    for rule in RULES["REFUS"]:
-        if eval(f"{client_row[rule['feature']]} {rule['operator']} {rule['value']}"):
-            return "Refusé"
-    return "Accordé"
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
@@ -80,7 +58,7 @@ st.sidebar.subheader("Données Client")
 client_data = data[data["SK_ID_CURR"] == client_id]
 st.sidebar.dataframe(client_data)
 
-# Visualisation du score
+# Visualisation du score et de sa probabilité
 st.sidebar.subheader("Score de Crédit")
 try:
     score = model.predict_proba(client_data[model_columns])[0, 1]  # Probabilité de la classe positive
@@ -93,18 +71,9 @@ try:
 except Exception as e:
     st.sidebar.error(f"Erreur lors de l'évaluation du score : {e}")
 
-# Interprétation du score
-st.header("Interprétation du Score")
-try:
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(client_data[model_columns])
-    st_shap = lambda plot: st.components.v1.html(shap.plots.force(plot, matplotlib=True)._repr_html_(), height=300)
-    st_shap(shap.force_plot(explainer.expected_value[1], shap_values[1], client_data[model_columns]))
-except Exception as e:
-    st.error(f"Erreur lors de l'interprétation du score : {e}")
-
-# Visualisation des informations descriptives
+# Visualisation des principales informations descriptives
 st.header("Informations Clés du Client")
+st.subheader("Résumé des informations du client")
 metrics = {
     "Revenu Annuel": client_data["AMT_INCOME_TOTAL"].values[0],
     "Montant Crédit": client_data["AMT_CREDIT"].values[0],
