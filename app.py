@@ -32,7 +32,7 @@ def load_data():
 
 @st.cache
 def load_model():
-    with open("model.pkl", "rb") as model_file:
+    with open("trained_model", "rb") as model_file:
         return pickle.load(model_file)
 
 @st.cache
