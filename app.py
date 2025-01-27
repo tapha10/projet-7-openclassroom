@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
+import pickle
 import zipfile
 
 # Configuration de la page
@@ -26,6 +28,11 @@ def load_data():
     with zipfile.ZipFile("cleaned_data.zip", "r") as z:
         with z.open("cleaned_data.csv") as f:
             return pd.read_csv(f)
+
+@st.cache
+def load_model_columns():
+    with open("model_columns.pkl", "rb") as columns_file:
+        return pickle.load(columns_file)
 
 # Charger les données
 try:
@@ -134,8 +141,32 @@ try:
     ax.legend()
     st.pyplot(fig)
 
+
 except Exception as e:
     st.error(f"Erreur lors de la comparaison avec le groupe : {e}")
+    
+# Graphique: Proportions des statuts familiaux
+st.header("Analyse des Statuts Familiaux")
+st.subheader("Proportions des différents statuts familiaux")
+fig4 = px.pie(
+    data,
+    names="NAME_FAMILY_STATUS",
+    title="Répartition des statuts familiaux",
+    hole=0.4
+)
+st.plotly_chart(fig4)
+
+# Critères d'accessibilité WCAG
+st.markdown(
+    """
+    ### Accessibilité du Dashboard
+    - **Critère 1.1.1 Contenu non textuel :** Les graphiques sont accompagnés de descriptions et de titres compréhensibles.
+    - **Critère 1.4.1 Utilisation de la couleur :** Les graphiques utilisent des couleurs adaptées pour ne pas dépendre uniquement de la couleur.
+    - **Critère 1.4.3 Contraste (minimum) :** Les contrastes entre le texte et l'arrière-plan respectent les normes.
+    - **Critère 1.4.4 Redimensionnement du texte :** Utilisez le zoom du navigateur pour ajuster la taille du texte sans perte de lisibilité.
+    - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
+    """
+)
 
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
 
