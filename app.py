@@ -39,7 +39,6 @@ try:
 except Exception as e:
     st.sidebar.error(f"Erreur lors du chargement des données : {e}")
 
-
 # Définir les règles pour accorder ou refuser un crédit
 RULES = {
     "ACCORD": [
@@ -57,7 +56,6 @@ def check_decision_and_calculate_threshold(client_row):
     income = client_row["AMT_INCOME_TOTAL"]
     credit = client_row["AMT_CREDIT"]
 
-    # Déterminer la proximité au seuil pour chaque règle
     accord_distance = [
         max(0, (rule["value"] - income) if rule["operator"] == ">=" else (credit - rule["value"]))
         for rule in RULES["ACCORD"]
@@ -67,50 +65,12 @@ def check_decision_and_calculate_threshold(client_row):
         for rule in RULES["REFUS"]
     ]
 
-    # Décision et score basé sur les distances aux règles
     if all(d == 0 for d in accord_distance):
-        return "Accordé", 0.8  # Score élevé pour un accord
+        return "Accordé", 0.8
     elif any(d > 0 for d in refus_distance):
-        return "Refusé", 0.2  # Score bas pour un refus
+        return "Refusé", 0.2
     else:
-        return "Refusé", 0.5  # Cas limite au seuil
-
-# Interface utilisateur : Sélection d'un client
-st.sidebar.header("Options Utilisateur")
-client_id = st.sidebar.selectbox("Sélectionnez un ID Client :", data["SK_ID_CURR"].unique())
-
-# **1. Visualiser le score et la probabilité**
-st.header("Visualisation du Score et de la Proximité avec le Seuil")
-client_data = data[data["SK_ID_CURR"] == client_id]
-
-try:
-    decision, score = check_decision_and_calculate_threshold(client_data.iloc[0])
-    seuil = 0.5  # Seuil fixe pour décider
-    st.write(f"### Résultat pour le client sélectionné : {decision}")
-
-    # Visualisation du score et de sa proximité avec le seuil
-    fig, ax = plt.subplots(figsize=(8, 2))
-    ax.barh(["Score"], [score], color="green" if score >= seuil else "red", label="Score actuel")
-    ax.axvline(seuil, color="blue", linestyle="--", label="Seuil")
-    ax.set_xlim(0, 1)
-    ax.set_title("Score et Proximité du Seuil")
-    ax.legend()
-
-    # Annotation du score
-    ax.text(score, 0, f"{score:.2f}", va="center", ha="center", color="white", fontsize=12)
-
-    st.pyplot(fig)
-
-except Exception as e:
-    st.error(f"Erreur lors de l'évaluation des règles : {e}")
-
-    # Décision et score basé sur les distances aux règles
-    if all(d == 0 for d in accord_distance):
-        return "Accordé", 0.8  # Score élevé pour un accord
-    elif any(d > 0 for d in refus_distance):
-        return "Refusé", 0.2  # Score bas pour un refus
-    else:
-        return "Refusé", 0.5  # Cas limite au seuil
+        return "Refusé", 0.5
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
@@ -124,8 +84,17 @@ try:
     seuil = 0.5
     st.write(f"### Résultat pour le client sélectionné : {decision}")
 
-    fig, ax = plt.subplots(figsize=(5, 3))
-    gauge(arrow=score, ax=ax, title="Niveau de Risque", colors="RdYlGn" if decision == "Accordé" else "RdYlGn_r")
+    # Visualisation du score et de sa proximité avec le seuil
+    fig, ax = plt.subplots(figsize=(8, 2))
+    ax.barh(["Score"], [score], color="green" if score >= seuil else "red", label="Score actuel")
+    ax.axvline(seuil, color="blue", linestyle="--", label="Seuil")
+    ax.set_xlim(0, 1)
+    ax.set_title("Score et Proximité du Seuil")
+    ax.legend()
+
+    # Annotation du score
+    ax.text(score, 0, f"{score:.2f}", va="center", ha="center", color="white", fontsize=12)
+
     st.pyplot(fig)
 
 except Exception as e:
@@ -164,6 +133,7 @@ try:
     ax.set_title("Revenu vs Montant du Crédit")
     ax.set_xlabel("Revenu Annuel")
     ax.set_ylabel("Montant du Crédit")
+    ax.set_xlim(0, 2.5)
     ax.legend()
     st.pyplot(fig)
 except Exception as e:
@@ -181,4 +151,20 @@ try:
 
 except Exception as e:
     st.error(f"Erreur lors de l'affichage des variables importantes : {e}")
+
+# Critères d'accessibilité WCAG
+st.markdown(
+    """
+    ### Accessibilité du Dashboard
+    - **Critère 1.1.1 Contenu non textuel :** Les graphiques sont accompagnés de descriptions et de titres compréhensibles.
+    - **Critère 1.4.1 Utilisation de la couleur :** Les graphiques utilisent des couleurs adaptées pour ne pas dépendre uniquement de la couleur.
+    - **Critère 1.4.3 Contraste (minimum) :** Les contrastes entre le texte et l'arrière-plan respectent les normes.
+    - **Critère 1.4.4 Redimensionnement du texte :** Utilisez le zoom du navigateur pour ajuster la taille du texte sans perte de lisibilité.
+    - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
+    """
+)
+
+# Message de fin
+st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
+
 
