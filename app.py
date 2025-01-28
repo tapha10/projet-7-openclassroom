@@ -5,6 +5,9 @@ import seaborn as sns
 import plotly.express as px
 import pickle
 import zipfile
+import numpy as np
+from matplotlib.patches import Wedge, Rectangle, Circle
+from matplotlib import cm
 
 # Configuration de la page
 st.set_page_config(
@@ -41,6 +44,33 @@ try:
 except Exception as e:
     st.sidebar.error(f"Erreur lors du chargement des données : {e}")
 
+# Fonction pour jauge
+def gauge(arrow=0.4, labels=['Faible', 'Modéré', 'Élevé', 'Très élevé'],
+          title='', min_val=0, max_val=1, threshold=0.5,
+          colors='RdYlGn_r', ax=None, figsize=(2, 1.3)):
+    N = len(labels)
+    cmap = cm.get_cmap(colors, N)
+    colors = cmap(np.arange(N))[::-1]
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+
+    for i, color in enumerate(colors):
+        ax.add_patch(Wedge((0., 0.), .4, i * 180 / N, (i + 1) * 180 / N, width=0.10, facecolor=color))
+
+    ax.add_patch(Rectangle((-0.4, -0.1), 0.8, 0.1, facecolor='w', lw=2))
+    ax.text(0, -0.1, title, horizontalalignment='center', verticalalignment='center', fontsize=15)
+
+    pos = 180 - (180 * (arrow - min_val) / (max_val - min_val))
+    ax.arrow(0, 0, 0.2 * np.cos(np.radians(pos)), 0.2 * np.sin(np.radians(pos)), width=0.02, head_width=0.05, head_length=0.05, fc='k')
+    ax.add_patch(Circle((0, 0), radius=0.02, facecolor='k'))
+
+    ax.set_frame_on(False)
+    ax.axes.set_xticks([])
+    ax.axes.set_yticks([])
+    ax.axis('equal')
+    return ax
+
 # Définir les règles pour accorder ou refuser un crédit
 RULES = {
     "ACCORD": [
@@ -58,7 +88,6 @@ def check_decision_and_calculate_threshold(client_row):
     income = client_row["AMT_INCOME_TOTAL"]
     credit = client_row["AMT_CREDIT"]
 
-    # Déterminer la proximité au seuil pour chaque règle
     accord_distance = [
         max(0, (rule["value"] - income) if rule["operator"] == ">=" else (credit - rule["value"]))
         for rule in RULES["ACCORD"]
@@ -68,44 +97,33 @@ def check_decision_and_calculate_threshold(client_row):
         for rule in RULES["REFUS"]
     ]
 
-    # Décision et score basé sur les distances aux règles
     if all(d == 0 for d in accord_distance):
-        return "Accordé", 0.8  # Score élevé pour un accord
+        return "Accordé", 0.8
     elif any(d > 0 for d in refus_distance):
-        return "Refusé", 0.2  # Score bas pour un refus
+        return "Refusé", 0.2
     else:
-        return "Refusé", 0.5  # Cas limite au seuil
+        return "Refusé", 0.5
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
 client_id = st.sidebar.selectbox("Sélectionnez un ID Client :", data["SK_ID_CURR"].unique())
 
-# **1. Visualiser le score et la probabilité**
+# Visualisation du Score et de la Proximité avec le Seuil
 st.header("Visualisation du Score et de la Proximité avec le Seuil")
 client_data = data[data["SK_ID_CURR"] == client_id]
-
 try:
     decision, score = check_decision_and_calculate_threshold(client_data.iloc[0])
-    seuil = 0.5  # Seuil fixe pour décider
+    seuil = 0.5
     st.write(f"### Résultat pour le client sélectionné : {decision}")
 
-    # Visualisation du score et de sa proximité avec le seuil
-    fig, ax = plt.subplots(figsize=(8, 2))
-    ax.barh(["Score"], [score], color="green" if score >= seuil else "red", label="Score actuel")
-    ax.axvline(seuil, color="blue", linestyle="--", label="Seuil")
-    ax.set_xlim(0, 1)
-    ax.set_title("Score et Proximité du Seuil")
-    ax.legend()
-
-    # Annotation du score
-    ax.text(score, 0, f"{score:.2f}", va="center", ha="center", color="white", fontsize=12)
-
+    fig, ax = plt.subplots(figsize=(5, 3))
+    gauge(arrow=score, ax=ax, title="Niveau de Risque")
     st.pyplot(fig)
 
 except Exception as e:
     st.error(f"Erreur lors de l'évaluation des règles : {e}")
 
-# **2. Visualiser les principales informations descriptives du client**
+# Visualisation des principales informations descriptives du client
 st.header("Informations Clés du Client")
 try:
     metrics = {
@@ -118,7 +136,7 @@ try:
 except Exception as e:
     st.error(f"Erreur lors de l'affichage des informations descriptives : {e}")
 
-# **3. Comparaison avec un groupe similaire**
+# Comparaison avec un groupe similaire
 st.header("Comparaison avec un Groupe")
 st.subheader("Comparer avec des clients similaires")
 try:
@@ -140,33 +158,19 @@ try:
     ax.set_ylabel("Montant du Crédit")
     ax.legend()
     st.pyplot(fig)
-
-
 except Exception as e:
     st.error(f"Erreur lors de la comparaison avec le groupe : {e}")
-    
-# Graphique: Proportions des statuts familiaux
-st.header("Analyse des Statuts Familiaux")
-st.subheader("Proportions des différents statuts familiaux")
-fig4 = px.pie(
-    data,
-    names="NAME_FAMILY_STATUS",
-    title="Répartition des statuts familiaux",
-    hole=0.4
-)
-st.plotly_chart(fig4)
 
-# Critères d'accessibilité WCAG
-st.markdown(
-    """
-    ### Accessibilité du Dashboard
-    - **Critère 1.1.1 Contenu non textuel :** Les graphiques sont accompagnés de descriptions et de titres compréhensibles.
-    - **Critère 1.4.1 Utilisation de la couleur :** Les graphiques utilisent des couleurs adaptées pour ne pas dépendre uniquement de la couleur.
-    - **Critère 1.4.3 Contraste (minimum) :** Les contrastes entre le texte et l'arrière-plan respectent les normes.
-    - **Critère 1.4.4 Redimensionnement du texte :** Utilisez le zoom du navigateur pour ajuster la taille du texte sans perte de lisibilité.
-    - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
-    """
-)
+# Visualisation de l'importance des variables
+st.header("Importance des Variables Globale")
+try:
+    df_feature_importance = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].mean().sort_values(ascending=False)
 
-st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
-
+    plt.figure(figsize=(8, 6))
+    sns.barplot(x=df_feature_importance.values, y=df_feature_importance.index, color="skyblue")
+    plt.title("Importance des Variables (EXT Sources)")
+    plt.xlabel("Importance Moyenne")
+    plt.ylabel("Variable")
+    st.pyplot(plt.gcf())
+except Exception as e:
+    st.error(f"Erreur lors de l'affichage des importances des variables : {e}")
