@@ -159,7 +159,7 @@ except Exception as e:
 # Visualisation des variables les plus importantes pour le client sélectionné
 st.header("Feature Importance pour le Client Sélectionné")
 try:
-    important_features = ["DAYS_BIRTH", "DAYS_EMPLOYED", "REGION_RATING_CLIENT", "REGION_RATING_CLIENT_W_CITY", "DAYS_LAST_PHONE_CHANGE", "NAME_EDUCATION_TYPE"]
+    important_features = ["DAYS_BIRTH", "DAYS_EMPLOYED", "CODE_GENDER", "REGION_RATING_CLIENT_W_CITY", "DAYS_LAST_PHONE_CHANGE", "NAME_EDUCATION_TYPE"]
     feature_values = client_data[important_features].iloc[0]
 
     st.write("### Top 6 Variables les Plus Importantes :")
