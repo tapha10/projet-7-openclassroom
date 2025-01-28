@@ -39,32 +39,6 @@ try:
 except Exception as e:
     st.sidebar.error(f"Erreur lors du chargement des données : {e}")
 
-# Fonction pour jauge
-def gauge(arrow=0.4, labels=['Faible', 'Modéré', 'Élevé', 'Très élevé'],
-          title='', min_val=0, max_val=1, threshold=0.5,
-          colors='RdYlGn_r', ax=None, figsize=(2, 1.3)):
-    N = len(labels)
-    cmap = cm.get_cmap(colors, N)
-    colors = cmap(np.arange(N))[::-1]
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=figsize)
-
-    for i, color in enumerate(colors):
-        ax.add_patch(Wedge((0., 0.), .4, i * 180 / N, (i + 1) * 180 / N, width=0.10, facecolor=color))
-
-    ax.add_patch(Rectangle((-0.4, -0.1), 0.8, 0.1, facecolor='w', lw=2))
-    ax.text(0, -0.1, title, horizontalalignment='center', verticalalignment='center', fontsize=15)
-
-    pos = 180 - (180 * (arrow - min_val) / (max_val - min_val))
-    ax.arrow(0, 0, 0.2 * np.cos(np.radians(pos)), 0.2 * np.sin(np.radians(pos)), width=0.02, head_width=0.05, head_length=0.05, fc='k')
-    ax.add_patch(Circle((0, 0), radius=0.02, facecolor='k'))
-
-    ax.set_frame_on(False)
-    ax.axes.set_xticks([])
-    ax.axes.set_yticks([])
-    ax.axis('equal')
-    return ax
 
 # Définir les règles pour accorder ou refuser un crédit
 RULES = {
@@ -98,6 +72,24 @@ def check_decision_and_calculate_threshold(client_row):
         return "Refusé", 0.2
     else:
         return "Refusé", 0.5
+        
+# Déterminer la proximité au seuil pour chaque règle
+    accord_distance = [
+        max(0, (rule["value"] - income) if rule["operator"] == ">=" else (credit - rule["value"]))
+        for rule in RULES["ACCORD"]
+    ]
+    refus_distance = [
+        max(0, (rule["value"] - income) if rule["operator"] == "<" else (credit - rule["value"]))
+        for rule in RULES["REFUS"]
+    ]
+
+    # Décision et score basé sur les distances aux règles
+    if all(d == 0 for d in accord_distance):
+        return "Accordé", 0.8  # Score élevé pour un accord
+    elif any(d > 0 for d in refus_distance):
+        return "Refusé", 0.2  # Score bas pour un refus
+    else:
+        return "Refusé", 0.5  # Cas limite au seuil
 
 # Interface utilisateur : Sélection d'un client
 st.sidebar.header("Options Utilisateur")
