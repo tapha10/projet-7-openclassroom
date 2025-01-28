@@ -164,7 +164,7 @@ except Exception as e:
 # Visualisation de l'importance des variables
 st.header("Importance des Variables Globale")
 try:
-    df_feature_importance = data[["EXT_SOURCE_1", "EXT_SOURCE_2", "EXT_SOURCE_3"]].mean().sort_values(ascending=False)
+    df_feature_importance = data[["DAYS_BIRTH", "DAYS_EMPLOYED", "DAYS_EMPLOYED", "REGION_RATING_CLIENT_W_CITY", "REGION_RATING_CLIENT"]].mean().sort_values(ascending=False)
 
     plt.figure(figsize=(8, 6))
     sns.barplot(x=df_feature_importance.values, y=df_feature_importance.index, color="skyblue")
