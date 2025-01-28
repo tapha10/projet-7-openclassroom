@@ -32,11 +32,6 @@ def load_data():
         with z.open("cleaned_data.csv") as f:
             return pd.read_csv(f)
 
-@st.cache
-def load_model_columns():
-    with open("model_columns.pkl", "rb") as columns_file:
-        return pickle.load(columns_file)
-
 # Charger les données
 try:
     data = load_data()
@@ -117,7 +112,7 @@ try:
     st.write(f"### Résultat pour le client sélectionné : {decision}")
 
     fig, ax = plt.subplots(figsize=(5, 3))
-    gauge(arrow=score, ax=ax, title="Niveau de Risque")
+    gauge(arrow=score, ax=ax, title="Niveau de Risque", colors="RdYlGn" if decision == "Accordé" else "RdYlGn_r")
     st.pyplot(fig)
 
 except Exception as e:
@@ -161,16 +156,16 @@ try:
 except Exception as e:
     st.error(f"Erreur lors de la comparaison avec le groupe : {e}")
 
-# Visualisation de l'importance des variables
-st.header("Importance des Variables Globale")
+# Visualisation des variables les plus importantes pour le client sélectionné
+st.header("Feature Importance pour le Client Sélectionné")
 try:
-    df_feature_importance = data[["DAYS_BIRTH", "DAYS_EMPLOYED", "DAYS_EMPLOYED", "REGION_RATING_CLIENT_W_CITY", "REGION_RATING_CLIENT"]].mean().sort_values(ascending=False)
+    important_features = ["DAYS_BIRTH", "DAYS_EMPLOYED", "REGION_RATING_CLIENT", "REGION_RATING_CLIENT_W_CITY", "DAYS_LAST_PHONE_CHANGE", "NAME_EDUCATION_TYPE"]
+    feature_values = client_data[important_features].iloc[0]
 
-    plt.figure(figsize=(8, 6))
-    sns.barplot(x=df_feature_importance.values, y=df_feature_importance.index, color="skyblue")
-    plt.title("Importance des Variables (EXT Sources)")
-    plt.xlabel("Importance Moyenne")
-    plt.ylabel("Variable")
-    st.pyplot(plt.gcf())
+    st.write("### Top 6 Variables les Plus Importantes :")
+    for feature, value in feature_values.items():
+        st.write(f"**{feature}** : {value}")
+
 except Exception as e:
-    st.error(f"Erreur lors de l'affichage des importances des variables : {e}")
+    st.error(f"Erreur lors de l'affichage des variables importantes : {e}")
+
