@@ -113,7 +113,7 @@ try:
 except Exception as e:
     st.error(f"Erreur lors de l'affichage des informations descriptives : {e}")
 
-# Comparaison avec un groupe similaire
+# **3. Comparaison avec un groupe similaire**
 st.header("Comparaison avec un Groupe")
 st.subheader("Comparer avec des clients similaires")
 try:
@@ -133,9 +133,10 @@ try:
     ax.set_title("Revenu vs Montant du Crédit")
     ax.set_xlabel("Revenu Annuel")
     ax.set_ylabel("Montant du Crédit")
-    ax.set_xlim(0, 2.5)
     ax.legend()
     st.pyplot(fig)
+
+
 except Exception as e:
     st.error(f"Erreur lors de la comparaison avec le groupe : {e}")
 
