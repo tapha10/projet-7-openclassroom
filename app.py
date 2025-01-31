@@ -1,13 +1,8 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import plotly.express as px
-import pickle
-import zipfile
 import numpy as np
-from matplotlib.patches import Wedge, Rectangle, Circle
-from matplotlib import cm
+import zipfile
 
 # Configuration de la page
 st.set_page_config(
@@ -16,156 +11,110 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Titre et description
 st.title("Dashboard Crédit Scoring")
 st.markdown(
     """
     **Bienvenue sur le tableau de bord Crédit Scoring !**  
-    Explorez les scores de crédit des clients et découvrez leur décision d'accord ou de refus.  
+    Explorez les scores de crédit des clients et découvrez leur décision d'accord ou de refus en fonction des critères clés.
     """
 )
 
 # Chargement des données
-@st.cache
+@st.cache_data
 def load_data():
-    with zipfile.ZipFile("cleaned_data.zip", "r") as z:
-        with z.open("cleaned_data.csv") as f:
-            return pd.read_csv(f)
+    return pd.read_csv("cleaned_data.csv")
 
-# Charger les données
-try:
-    data = load_data()
-    st.sidebar.success("Données chargées avec succès !")
-except Exception as e:
-    st.sidebar.error(f"Erreur lors du chargement des données : {e}")
+data = load_data()
 
-# Définir les règles pour accorder ou refuser un crédit
-RULES = {
-    "ACCORD": [
-        {"feature": "AMT_INCOME_TOTAL", "operator": ">=", "value": 50000},
-        {"feature": "AMT_CREDIT", "operator": "<=", "value": 500000},
-    ],
-    "REFUS": [
-        {"feature": "AMT_INCOME_TOTAL", "operator": "<", "value": 20000},
-        {"feature": "AMT_CREDIT", "operator": ">", "value": 1000000},
-    ]
+st.sidebar.success("Données chargées avec succès !")
+
+# Seuils basés sur l'analyse
+SEUILS = {
+    "AGE": 40,
+    "YEARS_EMPLOYED": 5,
+    "REGION_RATING_CLIENT_W_CITY": 2,
+    "DAYS_LAST_PHONE_CHANGE": 900
 }
 
-# Vérifier si un client satisfait les règles et calculer le seuil
-def check_decision_and_calculate_threshold(client_row):
-    income = client_row["AMT_INCOME_TOTAL"]
-    credit = client_row["AMT_CREDIT"]
+# Calcul de la décision basée sur ces seuils
+def check_credit_approval(client_row):
+    age = -client_row["DAYS_BIRTH"] // 365
+    years_employed = -client_row["DAYS_EMPLOYED"] // 365 if client_row["DAYS_EMPLOYED"] < 0 else 0
+    region_rating = client_row["REGION_RATING_CLIENT_W_CITY"]
+    phone_change_days = -client_row["DAYS_LAST_PHONE_CHANGE"]
 
-    accord_distance = [
-        max(0, (rule["value"] - income) if rule["operator"] == ">=" else (credit - rule["value"]))
-        for rule in RULES["ACCORD"]
-    ]
-    refus_distance = [
-        max(0, (rule["value"] - income) if rule["operator"] == "<" else (credit - rule["value"]))
-        for rule in RULES["REFUS"]
-    ]
-
-    if all(d == 0 for d in accord_distance):
+    # Vérification des conditions
+    if (age >= SEUILS["AGE"] and years_employed >= SEUILS["YEARS_EMPLOYED"] and
+        region_rating <= SEUILS["REGION_RATING_CLIENT_W_CITY"] and phone_change_days >= SEUILS["DAYS_LAST_PHONE_CHANGE"]):
         return "Accordé", 0.8
-    elif any(d > 0 for d in refus_distance):
-        return "Refusé", 0.2
     else:
-        return "Refusé", 0.5
+        return "Refusé", 0.2
 
-# Interface utilisateur : Sélection d'un client
+# Sélection de l'ID Client
 st.sidebar.header("Options Utilisateur")
 client_id = st.sidebar.selectbox("Sélectionnez un ID Client :", data["SK_ID_CURR"].unique())
-
-# Visualisation du Score et de la Proximité avec le Seuil
-st.header("Visualisation du Score et de la Proximité avec le Seuil")
 client_data = data[data["SK_ID_CURR"] == client_id]
-try:
-    decision, score = check_decision_and_calculate_threshold(client_data.iloc[0])
-    seuil = 0.5
-    st.write(f"### Résultat pour le client sélectionné : {decision}")
 
-    # Visualisation du score et de sa proximité avec le seuil
-    fig, ax = plt.subplots(figsize=(8, 2))
-    ax.barh(["Score"], [score], color="green" if score >= seuil else "red", label="Score actuel")
-    ax.axvline(seuil, color="blue", linestyle="--", label="Seuil")
-    ax.set_xlim(0, 1)
-    ax.set_title("Score et Proximité du Seuil")
-    ax.legend()
+# Affichage du résultat
+decision, score = check_credit_approval(client_data.iloc[0])
+st.header("Résultat de l'évaluation")
+st.write(f"### Décision : {decision}")
 
-    # Annotation du score
-    ax.text(score, 0, f"{score:.2f}", va="center", ha="center", color="white", fontsize=12)
+# Visualisation du score
+fig, ax = plt.subplots(figsize=(8, 2))
+ax.barh(["Score"], [score], color="green" if score >= 0.5 else "red", label="Score actuel")
+ax.axvline(0.5, color="blue", linestyle="--", label="Seuil")
+ax.set_xlim(0, 1)
+ax.set_title("Score et Proximité du Seuil")
+ax.legend()
+ax.text(score, 0, f"{score:.2f}", va="center", ha="center", color="white", fontsize=12)
+st.pyplot(fig)
 
-    st.pyplot(fig)
-
-except Exception as e:
-    st.error(f"Erreur lors de l'évaluation des règles : {e}")
-
-# Visualisation des principales informations descriptives du client
+# Affichage des valeurs des features importantes
 st.header("Informations Clés du Client")
-try:
-    metrics = {
-        "Revenu Annuel": client_data["AMT_INCOME_TOTAL"].values[0],
-        "Montant Crédit": client_data["AMT_CREDIT"].values[0],
-        "Type Contrat": client_data["NAME_CONTRACT_TYPE"].values[0]
-    }
-    for key, value in metrics.items():
-        st.metric(key, value)
-except Exception as e:
-    st.error(f"Erreur lors de l'affichage des informations descriptives : {e}")
+st.write("### Caractéristiques importantes")
+important_features = ["DAYS_BIRTH", "DAYS_EMPLOYED", "CODE_GENDER", "REGION_RATING_CLIENT_W_CITY", "DAYS_LAST_PHONE_CHANGE", "NAME_EDUCATION_TYPE"]
 
-# **3. Comparaison avec un groupe similaire**
+for feature in important_features:
+    st.write(f"**{feature}** : {client_data[feature].values[0]}")
+
+# Comparaison du client avec un groupe similaire
 st.header("Comparaison avec un Groupe")
-st.subheader("Comparer avec des clients similaires")
-try:
-    genre = st.selectbox("Genre :", data["CODE_GENDER"].unique())
-    contrat = st.selectbox("Type de Contrat :", data["NAME_CONTRACT_TYPE"].unique())
-    filtered_data = data[(data["CODE_GENDER"] == genre) & (data["NAME_CONTRACT_TYPE"] == contrat)]
 
-    st.subheader("Visualisation des Revenus et Crédits")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.scatterplot(
-        x="AMT_INCOME_TOTAL", y="AMT_CREDIT", data=filtered_data, label="Groupe", ax=ax, color="blue", alpha=0.6
-    )
-    ax.scatter(
-        client_data["AMT_INCOME_TOTAL"], client_data["AMT_CREDIT"],
-        color="red", label="Client Sélectionné", s=100
-    )
-    ax.set_title("Revenu vs Montant du Crédit")
-    ax.set_xlabel("Revenu Annuel")
-    ax.set_ylabel("Montant du Crédit")
-    ax.legend()
-    st.pyplot(fig)
+# Filtrer les clients du même genre et niveau d'éducation
+group_data = data[
+    (data["CODE_GENDER"] == client_data.iloc[0]["CODE_GENDER"]) &
+    (data["NAME_EDUCATION_TYPE"] == client_data.iloc[0]["NAME_EDUCATION_TYPE"])
+]
 
+# Création des visualisations
+fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-except Exception as e:
-    st.error(f"Erreur lors de la comparaison avec le groupe : {e}")
+# Distribution de l'âge
+client_age = -client_data.iloc[0]["DAYS_BIRTH"] // 365
+ages = -group_data["DAYS_BIRTH"] // 365
+axes[0].hist(ages, bins=20, alpha=0.6, color="blue", label="Groupe")
+axes[0].axvline(client_age, color="red", linestyle="--", label="Client Sélectionné")
+axes[0].set_title("Distribution de l'Âge")
+axes[0].set_xlabel("Âge (années)")
+axes[0].set_ylabel("Nombre de clients")
+axes[0].legend()
 
-# Visualisation des variables les plus importantes pour le client sélectionné
-st.header("Feature Importance pour le Client Sélectionné")
-try:
-    important_features = ["DAYS_BIRTH", "DAYS_EMPLOYED", "CODE_GENDER", "REGION_RATING_CLIENT_W_CITY", "DAYS_LAST_PHONE_CHANGE", "NAME_EDUCATION_TYPE"]
-    feature_values = client_data[important_features].iloc[0]
+# Distribution de l'ancienneté d'emploi
+client_employment = -client_data.iloc[0]["DAYS_EMPLOYED"] // 365 if client_data.iloc[0]["DAYS_EMPLOYED"] < 0 else 0
+years_employed = -group_data["DAYS_EMPLOYED"] // 365 if group_data["DAYS_EMPLOYED"].lt(0).all() else 0
+axes[1].hist(years_employed, bins=20, alpha=0.6, color="green", label="Groupe")
+axes[1].axvline(client_employment, color="red", linestyle="--", label="Client Sélectionné")
+axes[1].set_title("Distribution de l'Ancienneté d'Emploi")
+axes[1].set_xlabel("Ancienneté d'Emploi (années)")
+axes[1].set_ylabel("Nombre de clients")
+axes[1].legend()
 
-    st.write("### Top 6 Variables les Plus Importantes :")
-    for feature, value in feature_values.items():
-        st.write(f"**{feature}** : {value}")
+# Affichage des visualisations
+plt.tight_layout()
+st.pyplot(fig)
 
-except Exception as e:
-    st.error(f"Erreur lors de l'affichage des variables importantes : {e}")
-
-# Critères d'accessibilité WCAG
-st.markdown(
-    """
-    ### Accessibilité du Dashboard
-    - **Critère 1.1.1 Contenu non textuel :** Les graphiques sont accompagnés de descriptions et de titres compréhensibles.
-    - **Critère 1.4.1 Utilisation de la couleur :** Les graphiques utilisent des couleurs adaptées pour ne pas dépendre uniquement de la couleur.
-    - **Critère 1.4.3 Contraste (minimum) :** Les contrastes entre le texte et l'arrière-plan respectent les normes.
-    - **Critère 1.4.4 Redimensionnement du texte :** Utilisez le zoom du navigateur pour ajuster la taille du texte sans perte de lisibilité.
-    - **Critère 2.4.2 Titre de page :** Le titre de la page est clair et décrit l'objectif du tableau de bord.
-    """
-)
-
-# Message de fin
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
+
 
 
