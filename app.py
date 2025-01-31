@@ -22,7 +22,9 @@ st.markdown(
 # Chargement des données
 @st.cache
 def load_data():
-    return pd.read_csv("cleaned_data.csv")
+    with zipfile.ZipFile("cleaned_data.zip", "r") as z:
+        with z.open("cleaned_data.csv") as f:
+            return pd.read_csv(f)
 
 data = load_data()
 
@@ -115,5 +117,3 @@ plt.tight_layout()
 st.pyplot(fig)
 
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
-
-
