@@ -102,15 +102,6 @@ axes[0].set_xlabel("Âge (années)")
 axes[0].set_ylabel("Nombre de clients")
 axes[0].legend()
 
-# Distribution de l'ancienneté d'emploi
-client_employment = -client_data.iloc[0]["DAYS_EMPLOYED"] // 365 if client_data.iloc[0]["DAYS_EMPLOYED"] < 0 else 0
-years_employed = -group_data["DAYS_EMPLOYED"] // 365 if group_data["DAYS_EMPLOYED"].lt(0).all() else 0
-axes[1].hist(years_employed, bins=20, alpha=0.6, color="green", label="Groupe")
-axes[1].axvline(client_employment, color="red", linestyle="--", label="Client Sélectionné")
-axes[1].set_title("Distribution de l'Ancienneté d'Emploi")
-axes[1].set_xlabel("Ancienneté d'Emploi (années)")
-axes[1].set_ylabel("Nombre de clients")
-axes[1].legend()
 
 # Affichage des visualisations
 plt.tight_layout()
