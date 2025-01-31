@@ -20,7 +20,7 @@ st.markdown(
 )
 
 # Chargement des données
-@st.cache_data
+@st.cache
 def load_data():
     return pd.read_csv("cleaned_data.csv")
 
