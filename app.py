@@ -117,4 +117,3 @@ st.pyplot(fig)
 st.markdown("**Merci d'utiliser le Dashboard Crédit Scoring !**")
 
 
-
