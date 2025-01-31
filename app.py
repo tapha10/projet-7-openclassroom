@@ -90,7 +90,7 @@ group_data = data[
 ]
 
 # Création des visualisations
-fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+fig, axes = plt.subplots(1, figsize=(12, 5))
 
 # Distribution de l'âge
 client_age = -client_data.iloc[0]["DAYS_BIRTH"] // 365
